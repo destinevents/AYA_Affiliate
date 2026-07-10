@@ -32,6 +32,15 @@ export const api = {
   createAffiliate: (data: Partial<Affiliate>) =>
     req<Affiliate>('/api/affiliates', { method: 'POST', body: JSON.stringify(data) }),
 
+  deleteAffiliate: (id: number): Promise<{ deleted: boolean }> => {
+    if (IS_DEMO) {
+      const i = DEMO_AFFILIATES.findIndex(x => x.id === id);
+      if (i !== -1) DEMO_AFFILIATES.splice(i, 1);
+      return Promise.resolve({ deleted: true });
+    }
+    return req(`/api/affiliates/${id}`, { method: 'DELETE' });
+  },
+
   toggleAffiliateStatus: (id: number): Promise<Affiliate> => {
     if (IS_DEMO) {
       const a = DEMO_AFFILIATES.find(x => x.id === id)!;
@@ -67,5 +76,14 @@ export const api = {
       return Promise.resolve(c);
     }
     return req(`/api/conversions/${id}/pay`, { method: 'PATCH' });
+  },
+
+  voidConversion: (id: number): Promise<Conversion> => {
+    if (IS_DEMO) {
+      const c = DEMO_CONVERSIONS.find(x => x.id === id)!;
+      c.status = 'void';
+      return Promise.resolve(c);
+    }
+    return req(`/api/conversions/${id}/void`, { method: 'PATCH' });
   },
 };

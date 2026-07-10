@@ -12,11 +12,14 @@ import { errorHandler } from './middleware/errorHandler.js';
 const app = express();
 const PORT = process.env.PORT ?? 3000;
 
+// Behind Railway's proxy — needed for rate limiting to see real client IPs
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(morgan('combined'));
 app.use(cors({
   origin: process.env.FRONTEND_URL ?? '*',
-  methods: ['GET', 'POST', 'PATCH'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json({ limit: '64kb' }));

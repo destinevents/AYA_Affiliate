@@ -71,4 +71,34 @@ router.patch('/:id/pay', requireAuth, async (req: AuthRequest, res: Response, ne
   } catch (err) { next(err); }
 });
 
+router.patch('/:id/void', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+
+    const convRows = await query<{ affiliate_id: number; commission_amount: string; status: string }>(
+      'SELECT affiliate_id, commission_amount, status FROM referral_conversions WHERE id = $1', [id]
+    );
+    if (!convRows.length) { res.status(404).json({ error: 'Conversion not found' }); return; }
+    if (convRows[0].status === 'void') {
+      res.status(409).json({ error: 'Conversion is already void' });
+      return;
+    }
+
+    const wasPaid = convRows[0].status === 'paid';
+    const { affiliate_id, commission_amount } = convRows[0];
+
+    await query('UPDATE referral_conversions SET status = $1 WHERE id = $2', ['void', id]);
+    // If it was already paid out, roll the commission back off the affiliate's lifetime total
+    if (wasPaid) {
+      await query(
+        'UPDATE affiliates SET lifetime_earned = lifetime_earned - $1 WHERE id = $2',
+        [commission_amount, affiliate_id]
+      );
+    }
+
+    const updated = await query('SELECT * FROM referral_conversions WHERE id = $1', [id]);
+    res.json(updated[0]);
+  } catch (err) { next(err); }
+});
+
 export default router;

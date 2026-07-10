@@ -19,12 +19,13 @@ export async function renderAffiliates(): Promise<string> {
       <td><span class="pill ${a.status}">${a.status}</span></td>
       <td style="color:var(--muted);font-size:0.74rem;">${a.joined_at.slice(0, 10)}</td>
       <td>${fmtPHP(parseFloat(a.lifetime_earned))}</td>
-      <td>
+      <td style="white-space:nowrap;">
         ${a.status === 'active'
           ? `<button class="small-btn ghost" data-toggle="${a.id}">Pause</button>`
           : a.status === 'paused'
             ? `<button class="small-btn primary" data-toggle="${a.id}">Reactivate</button>`
             : ''}
+        <button class="small-btn ghost" data-delete="${a.id}" data-name="${a.member_name}" style="margin-left:6px;">Delete</button>
       </td>
     </tr>
   `).join('');
@@ -52,6 +53,27 @@ export function attachAffiliateHandlers(reload: () => void): void {
       btn.disabled = true;
       await api.toggleAffiliateStatus(id);
       reload();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = Number(btn.dataset.delete);
+      const name = btn.dataset.name ?? 'this affiliate';
+      if (!confirm(`Delete ${name}? This also removes their promo code and cannot be undone.`)) return;
+      btn.disabled = true;
+      try {
+        await api.deleteAffiliate(id);
+        reload();
+      } catch (err) {
+        btn.disabled = false;
+        const msg = err instanceof Error ? err.message : 'Failed to delete';
+        try {
+          alert(JSON.parse(msg).error ?? msg);
+        } catch {
+          alert(msg);
+        }
+      }
     });
   });
 }

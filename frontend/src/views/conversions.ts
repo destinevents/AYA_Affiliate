@@ -31,9 +31,14 @@ export async function renderConversions(): Promise<string> {
         <span style="color:var(--muted);font-size:0.66rem;">(${parseFloat(c.commission_rate)}%)</span>
       </td>
       <td><span class="pill ${c.status}">${c.status}</span></td>
-      <td>${c.status === 'pending'
-        ? `<button class="small-btn primary" data-pay="${c.id}">Mark Paid</button>`
-        : ''}</td>
+      <td style="white-space:nowrap;">
+        ${c.status === 'pending'
+          ? `<button class="small-btn primary" data-pay="${c.id}">Mark Paid</button>`
+          : ''}
+        ${c.status !== 'void'
+          ? `<button class="small-btn ghost" data-void="${c.id}" style="margin-left:6px;">Void</button>`
+          : ''}
+      </td>
     </tr>
   `).join('');
 
@@ -110,6 +115,16 @@ export function attachConversionHandlers(reload: () => void): void {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       await api.markPaid(Number(btn.dataset.pay));
+      reload();
+    });
+  });
+
+  // Void buttons — for refunded/cancelled purchases
+  document.querySelectorAll<HTMLButtonElement>('[data-void]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Void this conversion? If it was already paid, the commission will be deducted from the affiliate\'s lifetime earnings.')) return;
+      btn.disabled = true;
+      await api.voidConversion(Number(btn.dataset.void));
       reload();
     });
   });

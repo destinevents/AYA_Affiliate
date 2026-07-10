@@ -30,6 +30,27 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: Next
   } catch (err) { next(err); }
 });
 
+router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+
+    const existing = await query('SELECT id FROM affiliates WHERE id = $1', [id]);
+    if (!existing.length) { res.status(404).json({ error: 'Affiliate not found' }); return; }
+
+    const conversions = await query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM referral_conversions WHERE affiliate_id = $1', [id]
+    );
+    if (parseInt(conversions[0].count) > 0) {
+      res.status(409).json({ error: 'This affiliate has recorded conversions and cannot be deleted — pause them instead to keep the payout history.' });
+      return;
+    }
+
+    await query('DELETE FROM promo_codes WHERE affiliate_id = $1', [id]);
+    await query('DELETE FROM affiliates WHERE id = $1', [id]);
+    res.json({ deleted: true });
+  } catch (err) { next(err); }
+});
+
 router.patch('/:id/status', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = z.coerce.number().int().positive().parse(req.params.id);
