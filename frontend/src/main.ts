@@ -2,7 +2,7 @@ import './style.css';
 import { isLoggedIn, clearToken } from './auth.js';
 import { renderLogin, attachLoginHandlers } from './views/login.js';
 import { renderAffiliates, attachAffiliateHandlers } from './views/affiliates.js';
-import { renderCampaigns } from './views/campaigns.js';
+import { renderCampaigns, attachCampaignHandlers } from './views/campaigns.js';
 import { renderGenerate, attachGenerateHandlers } from './views/generate.js';
 import { renderConversions, attachConversionHandlers } from './views/conversions.js';
 
@@ -117,6 +117,7 @@ function attachNavHandlers(): void {
 function attachTabHandlers(): void {
   const reload = () => renderDashboard();
   if (activeTab === 'affiliates') attachAffiliateHandlers(reload);
+  if (activeTab === 'campaigns') attachCampaignHandlers(reload);
   if (activeTab === 'generate') attachGenerateHandlers(reload);
   if (activeTab === 'conversions') attachConversionHandlers(reload);
 }

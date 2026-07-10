@@ -2,6 +2,7 @@ import { getToken, clearToken } from './auth.js';
 import type { Affiliate, Campaign, Conversion } from './types.js';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
+if (!BASE) console.warn('[AYA] VITE_API_URL is not set — API calls will fail. Add it to your .env.local or Vercel environment variables.');
 
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getToken();
@@ -42,7 +43,7 @@ export const api = {
   }),
 
   getConversions: () => req<Conversion[]>('/api/conversions'),
-  createConversion: (data: Partial<Conversion>) =>
+  createConversion: (data: { affiliate_id: number; promo_code: string; buyer_action: string; sale_amount: number }) =>
     req<Conversion>('/api/conversions', { method: 'POST', body: JSON.stringify(data) }),
   markPaid: (id: number) =>
     req<Conversion>(`/api/conversions/${id}/pay`, { method: 'PATCH' }),

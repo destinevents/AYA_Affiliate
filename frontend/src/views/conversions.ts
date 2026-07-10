@@ -1,9 +1,12 @@
 import { api } from '../api.js';
 import { fmtPHP } from '../utils.js';
-import type { Conversion } from '../types.js';
+import type { Conversion, Affiliate } from '../types.js';
 
 export async function renderConversions(): Promise<string> {
-  const conversions = await api.getConversions();
+  const [conversions, affiliates] = await Promise.all([
+    api.getConversions(),
+    api.getAffiliates(),
+  ]);
 
   const totalRevenue = conversions
     .filter(c => c.status !== 'void')
@@ -23,14 +26,21 @@ export async function renderConversions(): Promise<string> {
       <td><span class="code-tag">${c.promo_code}</span></td>
       <td style="font-size:0.74rem;">${c.buyer_action}</td>
       <td>${fmtPHP(parseFloat(c.sale_amount))}</td>
-      <td><strong style="color:var(--terra);">${fmtPHP(parseFloat(c.commission_amount))}</strong>
-        <span style="color:var(--muted);font-size:0.66rem;">(${parseFloat(c.commission_rate)}%)</span></td>
+      <td>
+        <strong style="color:var(--terra);">${fmtPHP(parseFloat(c.commission_amount))}</strong>
+        <span style="color:var(--muted);font-size:0.66rem;">(${parseFloat(c.commission_rate)}%)</span>
+      </td>
       <td><span class="pill ${c.status}">${c.status}</span></td>
       <td>${c.status === 'pending'
         ? `<button class="small-btn primary" data-pay="${c.id}">Mark Paid</button>`
         : ''}</td>
     </tr>
   `).join('');
+
+  const affiliateOptions = affiliates
+    .filter(a => a.status === 'active')
+    .map(a => `<option value="${a.id}" data-code="${a.code}">${a.member_name} — ${a.code}</option>`)
+    .join('');
 
   return `
     <h3 style="font-family:'Fraunces',serif;font-size:1.1rem;color:var(--pine);margin-bottom:14px;font-weight:400;">How a Conversion Is Created</h3>
@@ -40,28 +50,113 @@ export async function renderConversions(): Promise<string> {
       <div class="flow-step"><div class="flow-step-label">3. Record</div><div class="flow-step-title">Conversion row created</div><div class="flow-step-desc">sale_amount × commission_rate = commission_amount, status = pending.</div></div>
       <div class="flow-step"><div class="flow-step-label">4. Payout</div><div class="flow-step-title">Admin marks Paid</div><div class="flow-step-desc">Admin reviews and pays out — lifetime_earned updates on the affiliate.</div></div>
     </div>
+
     <div class="metric-strip">
       <div class="metric-card"><div class="metric-label">Total Revenue (via codes)</div><div class="metric-value">${fmtPHP(totalRevenue)}</div></div>
       <div class="metric-card"><div class="metric-label">Commission Paid</div><div class="metric-value">${fmtPHP(commissionPaid)}</div></div>
       <div class="metric-card"><div class="metric-label">Commission Pending</div><div class="metric-value">${fmtPHP(commissionPending)}</div><div class="metric-sub">${pendingCount} awaiting payout</div></div>
     </div>
+
     <table class="data-table">
       <thead><tr>
         <th>Date</th><th>Affiliate</th><th>Code Used</th><th>Buyer Action</th>
         <th>Sale Amount</th><th>Commission</th><th>Status</th><th></th>
       </tr></thead>
-      <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">No conversions yet</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">No conversions yet — record one below</td></tr>'}</tbody>
     </table>
+
+    <div style="margin-top:32px;">
+      <button class="small-btn gold" style="padding:10px 20px;font-size:0.6rem;margin-bottom:20px;" id="toggle-conv-form">
+        + Record Conversion
+      </button>
+
+      <div id="conv-form-wrap" style="display:none;">
+        <div class="form-card" style="max-width:560px;">
+          <div class="field-group">
+            <label class="field-label">Affiliate</label>
+            <select class="field-input" id="conv-affiliate">
+              <option value="">— Select affiliate —</option>
+              ${affiliateOptions}
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Code Used</label>
+            <input type="text" class="field-input" id="conv-code" placeholder="Auto-filled from affiliate" readonly
+              style="background:var(--fog-2);color:var(--muted);">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Buyer Action</label>
+            <input type="text" class="field-input" id="conv-action"
+              placeholder="e.g. Event Registration — DAYAW 2026">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Sale Amount (₱)</label>
+            <input type="number" class="field-input" id="conv-amount" placeholder="e.g. 750" min="1">
+          </div>
+          <div id="conv-error" style="color:var(--terra);font-size:0.78rem;margin-bottom:12px;display:none;"></div>
+          <div style="display:flex;gap:10px;">
+            <button class="small-btn primary" style="padding:10px 20px;font-size:0.6rem;" id="conv-submit">Record Conversion</button>
+            <button class="small-btn ghost" style="padding:10px 20px;font-size:0.6rem;" id="conv-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
 
 export function attachConversionHandlers(reload: () => void): void {
+  // Mark Paid buttons
   document.querySelectorAll<HTMLButtonElement>('[data-pay]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const id = Number(btn.dataset.pay);
       btn.disabled = true;
-      await api.markPaid(id);
+      await api.markPaid(Number(btn.dataset.pay));
       reload();
     });
+  });
+
+  // Record Conversion form toggle
+  const toggleBtn = document.getElementById('toggle-conv-form')!;
+  const formWrap = document.getElementById('conv-form-wrap')!;
+  const errEl = document.getElementById('conv-error')!;
+
+  toggleBtn?.addEventListener('click', () => {
+    const isHidden = formWrap.style.display === 'none';
+    formWrap.style.display = isHidden ? 'block' : 'none';
+    toggleBtn.textContent = isHidden ? '✕ Cancel' : '+ Record Conversion';
+  });
+
+  document.getElementById('conv-cancel')?.addEventListener('click', () => {
+    formWrap.style.display = 'none';
+    toggleBtn.textContent = '+ Record Conversion';
+  });
+
+  // Auto-fill code when affiliate selected
+  const affiliateSel = document.getElementById('conv-affiliate') as HTMLSelectElement;
+  const codeInput = document.getElementById('conv-code') as HTMLInputElement;
+  affiliateSel?.addEventListener('change', () => {
+    const selected = affiliateSel.selectedOptions[0];
+    codeInput.value = selected?.dataset.code ?? '';
+  });
+
+  document.getElementById('conv-submit')?.addEventListener('click', async () => {
+    errEl.style.display = 'none';
+    const affiliate_id = Number(affiliateSel.value);
+    const promo_code = codeInput.value.trim();
+    const buyer_action = (document.getElementById('conv-action') as HTMLInputElement).value.trim();
+    const sale_amount = Number((document.getElementById('conv-amount') as HTMLInputElement).value);
+
+    if (!affiliate_id || !buyer_action || !sale_amount) {
+      errEl.textContent = 'All fields are required';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    try {
+      await api.createConversion({ affiliate_id, promo_code, buyer_action, sale_amount });
+      reload();
+    } catch (err) {
+      errEl.textContent = err instanceof Error ? err.message : 'Failed to record conversion';
+      errEl.style.display = 'block';
+    }
   });
 }

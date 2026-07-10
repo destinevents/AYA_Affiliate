@@ -4,58 +4,112 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Single-file static HTML prototype for the **AYA (AsYouAreBaguio) Affiliate Program** — a clickable, in-browser mockup used for intern feedback and design validation before real development begins. No backend, no build step, no dependencies.
+**AYA (AsYouAreBaguio) Affiliate Program** — admin dashboard for managing affiliates, campaigns, referral codes, and commission payouts.
 
-**Deployed to Vercel** from the `main` branch of `https://github.com/destinevents/AYA_Affiliate`. Every push to `main` auto-deploys.
+- **Frontend** (`frontend/`) — Vite + TypeScript, deployed to Vercel
+- **Backend** (`backend/`) — Express + TypeScript, deployed to Railway
+- **Database** — PostgreSQL on Railway (schema in `backend/src/db/schema.sql`)
 
 ## Running Locally
 
-Open `index.html` directly in any browser — no server required.
+**Backend:**
+```bash
+cd backend
+cp .env.example .env   # fill in values
+npm run dev            # ts-node-dev with hot reload on port 3000
+```
+
+**Frontend:**
+```bash
+cd frontend
+# create frontend/.env.local with: VITE_API_URL=http://localhost:3000
+npm run dev            # Vite dev server
+```
+
+**Build for production:**
+```bash
+cd backend && npm run build   # tsc → dist/
+cd frontend && npm run build  # tsc + vite → dist/
+```
 
 ## Architecture
 
-Everything lives in a single `index.html` file with three sections:
+### Backend (`backend/src/`)
 
-1. **CSS** (`<style>`) — design tokens as CSS custom properties (`--pine`, `--gold`, `--fog`, etc.), component styles, responsive breakpoints
-2. **HTML** — four `<section class="view">` panels (only one visible at a time via `.active`), a sticky nav, and a toast element
-3. **JavaScript** (`<script>`) — all state and rendering logic
+| File/Dir | Purpose |
+|---|---|
+| `index.ts` | Express entry — registers helmet, morgan, CORS, routes, error handler |
+| `db/index.ts` | `pg` Pool + typed `query<T>()` helper |
+| `db/schema.sql` | Run once on Railway PostgreSQL to create all tables |
+| `middleware/auth.ts` | JWT `requireAuth` middleware (Bearer token) |
+| `middleware/errorHandler.ts` | Global error handler — ZodError → 400, others → 500 |
+| `routes/auth.ts` | `POST /api/auth/login` with bcrypt + rate limiting (10 req/15 min) |
+| `routes/affiliates.ts` | `GET/POST /api/affiliates`, `PATCH /api/affiliates/:id/status` |
+| `routes/campaigns.ts` | `GET/POST /api/campaigns` (with aggregated codes/conversions/revenue) |
+| `routes/codes.ts` | `POST /api/codes/generate` — creates affiliate + promo_code atomically |
+| `routes/conversions.ts` | `GET/POST /api/conversions`, `PATCH /api/conversions/:id/pay` |
 
-### In-Memory Data
+Every route validates input with **Zod** before touching the DB. All errors propagate via `next(err)` to the global error handler.
 
-All data is plain JS arrays at the top of the `<script>` block — no API calls, no localStorage:
+### Frontend (`frontend/src/`)
 
-- `MEMBERS` — AYA community members who can become affiliates
-- `AFFILIATES` — members enrolled in the affiliate program (references `MEMBERS` by `memberId`)
-- `CAMPAIGNS` — named marketing pushes codes can be attached to
-- `CONVERSIONS` — each referral sale event (references `AFFILIATES` by `affiliateId`)
+| File | Purpose |
+|---|---|
+| `main.ts` | App entry — boot, login gate, tab routing, nav handlers |
+| `api.ts` | All `fetch()` calls — attaches JWT, handles 401 redirect |
+| `auth.ts` | JWT read/write/clear in `localStorage`, expiry check |
+| `types.ts` | Shared TypeScript interfaces (`Affiliate`, `Campaign`, `Conversion`) |
+| `utils.ts` | `fmtPHP()` currency formatter |
+| `style.css` | All styles — design tokens as CSS custom properties |
+| `env.d.ts` | Vite `import.meta.env` type declarations |
+| `views/login.ts` | Login form render + handler |
+| `views/affiliates.ts` | Affiliates tab — list, pause/reactivate |
+| `views/campaigns.ts` | Campaigns tab — list + Create Campaign form |
+| `views/generate.ts` | Generate Code tab — new affiliate + code form |
+| `views/conversions.ts` | Commissions tab — list, Mark Paid, Record Conversion form |
 
-State mutates directly (e.g. `a.status = 'paused'`, `aff.lifetimeEarned += commission`) and re-renders trigger `renderAll()` or individual `render*()` calls.
+Each view exports `render*()` (returns HTML string) and `attach*Handlers(reload)` (wires up events after the HTML is injected). `main.ts` calls both after every tab switch.
 
-### Four Views
+### Database Schema
 
-| Tab | View ID | Render Function | Purpose |
-|---|---|---|---|
-| Affiliates | `view-affiliates` | `renderAffiliates()` | Member list, pause/reactivate |
-| Campaigns | `view-campaigns` | `renderCampaigns()` | Campaign performance table |
-| Generate Code | `view-generate` | `renderGenerateForm()` | New affiliate + code creation form |
-| Commissions | `view-conversions` | `renderConversions()` | Conversion tracking, Mark Paid |
-
-### Intended Real DB Schema (embedded as `schema-note` hints in the HTML)
-
-The prototype documents the planned production tables:
-- `affiliates` — links to `attendees.id`
-- `affiliate_campaigns` — codes link via `promo_codes.campaign_id`
-- `promo_codes` — existing production table, extended with `affiliate_id` + `campaign_id`
-- `referral_conversions` — sale amount × commission rate, payout status
+```
+affiliates          — member_name, code, commission_rate, status, lifetime_earned
+affiliate_campaigns — name, status, start_date, end_date
+promo_codes         — code, affiliate_id (FK), campaign_id (FK)
+referral_conversions — affiliate_id (FK), promo_code, sale_amount, commission_amount, status
+```
 
 ### Design System
 
-Fonts loaded from Google Fonts: `Fraunces` (serif display), `DM Sans` (body), `DM Mono` (monospace labels/codes).
+Fonts: `Fraunces` (serif display), `DM Sans` (body), `DM Mono` (monospace labels/codes) — loaded from Google Fonts in `frontend/index.html`.
 
-Key CSS variables: `--pine` (dark green), `--gold` (accent), `--fog` (light background), `--terra` (rust/error), `--moss` (success green), `--muted` (secondary text).
+Key CSS variables: `--pine` (dark green), `--gold` (accent), `--fog` (light background), `--terra` (rust/error), `--muted` (secondary text).
+
+## Environment Variables
+
+**Railway (backend):**
+```
+DATABASE_URL=        # auto-provided by Railway PostgreSQL addon
+ADMIN_USERNAME=
+ADMIN_PASSWORD=      # plain text or bcrypt hash (starts with $2)
+JWT_SECRET=          # long random string
+FRONTEND_URL=        # Vercel URL for CORS
+PORT=                # auto-provided by Railway
+```
+
+**Vercel (frontend):**
+```
+VITE_API_URL=        # Railway backend URL (required — app warns if missing)
+```
+
+## Deployment
+
+1. Push to `main` → Vercel auto-deploys `frontend/` (set Root Directory to `frontend` in Vercel settings)
+2. Railway: create PostgreSQL addon → run `backend/src/db/schema.sql` in the DB console
+3. Railway: create Node.js service → Root Directory: `backend` (nixpacks.toml handles build + start)
+4. Set all env vars in Railway and Vercel dashboards
 
 ## Context
 
 - **Prepared by:** Jenn Castro (`jenncastro@destinevents.biz`) — Disenyo Digitals Collective
 - **Organization:** Destine Events / AYA (AsYouAreBaguio) / Disenyo Digitals
-- This is a prototype for intern UX feedback — not production code
