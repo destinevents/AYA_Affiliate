@@ -1,5 +1,7 @@
 import './style.css';
-import { clearToken } from './auth.js';
+import { isLoggedIn, clearToken } from './auth.js';
+import { renderLogin, attachLoginHandlers } from './views/login.js';
+import { IS_DEMO } from './api.js';
 import { renderAffiliates, attachAffiliateHandlers } from './views/affiliates.js';
 import { renderCampaigns, attachCampaignHandlers } from './views/campaigns.js';
 import { renderGenerate, attachGenerateHandlers } from './views/generate.js';
@@ -122,7 +124,13 @@ function attachTabHandlers(): void {
 }
 
 function boot(): void {
-  renderDashboard();
+  if (!isLoggedIn()) {
+    const app = document.getElementById('app')!;
+    app.innerHTML = renderLogin();
+    attachLoginHandlers(() => renderDashboard());
+  } else {
+    renderDashboard();
+  }
 }
 
 boot();

@@ -1,11 +1,12 @@
-import { getToken, clearToken } from './auth.js';
+import { clearToken } from './auth.js';
 import type { Affiliate, Campaign, Conversion } from './types.js';
+import { DEMO_AFFILIATES, DEMO_CAMPAIGNS, DEMO_CONVERSIONS } from './demo.js';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
-if (!BASE) console.warn('[AYA] VITE_API_URL is not set — API calls will fail. Add it to your .env.local or Vercel environment variables.');
+export const IS_DEMO = !BASE;
 
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getToken();
+  const token = localStorage.getItem('aya_admin_token');
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers: {
@@ -25,13 +26,24 @@ export const api = {
       method: 'POST', body: JSON.stringify({ username, password }),
     }),
 
-  getAffiliates: () => req<Affiliate[]>('/api/affiliates'),
+  getAffiliates: (): Promise<Affiliate[]> =>
+    IS_DEMO ? Promise.resolve(DEMO_AFFILIATES) : req('/api/affiliates'),
+
   createAffiliate: (data: Partial<Affiliate>) =>
     req<Affiliate>('/api/affiliates', { method: 'POST', body: JSON.stringify(data) }),
-  toggleAffiliateStatus: (id: number) =>
-    req<Affiliate>(`/api/affiliates/${id}/status`, { method: 'PATCH' }),
 
-  getCampaigns: () => req<Campaign[]>('/api/campaigns'),
+  toggleAffiliateStatus: (id: number): Promise<Affiliate> => {
+    if (IS_DEMO) {
+      const a = DEMO_AFFILIATES.find(x => x.id === id)!;
+      a.status = a.status === 'active' ? 'paused' : 'active';
+      return Promise.resolve(a);
+    }
+    return req(`/api/affiliates/${id}/status`, { method: 'PATCH' });
+  },
+
+  getCampaigns: (): Promise<Campaign[]> =>
+    IS_DEMO ? Promise.resolve(DEMO_CAMPAIGNS) : req('/api/campaigns'),
+
   createCampaign: (data: Partial<Campaign>) =>
     req<Campaign>('/api/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
@@ -42,9 +54,18 @@ export const api = {
     method: 'POST', body: JSON.stringify(data),
   }),
 
-  getConversions: () => req<Conversion[]>('/api/conversions'),
+  getConversions: (): Promise<Conversion[]> =>
+    IS_DEMO ? Promise.resolve(DEMO_CONVERSIONS) : req('/api/conversions'),
+
   createConversion: (data: { affiliate_id: number; promo_code: string; buyer_action: string; sale_amount: number }) =>
     req<Conversion>('/api/conversions', { method: 'POST', body: JSON.stringify(data) }),
-  markPaid: (id: number) =>
-    req<Conversion>(`/api/conversions/${id}/pay`, { method: 'PATCH' }),
+
+  markPaid: (id: number): Promise<Conversion> => {
+    if (IS_DEMO) {
+      const c = DEMO_CONVERSIONS.find(x => x.id === id)!;
+      c.status = 'paid';
+      return Promise.resolve(c);
+    }
+    return req(`/api/conversions/${id}/pay`, { method: 'PATCH' });
+  },
 };
