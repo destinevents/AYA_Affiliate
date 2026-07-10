@@ -85,9 +85,7 @@ export function attachGenerateHandlers(reload: () => void): void {
       document.getElementById('gen-result-meta')!.innerHTML = `
         ${result.affiliate.member_name} · ${parseFloat(result.affiliate.commission_rate)}% commission
         ${campaign_id ? '' : ' · standing code'}<br>
-        <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--terra);">
-          INSERT INTO promo_codes (code, affiliate_id, campaign_id) VALUES ('${result.affiliate.code}', ${result.affiliate.id}, ${campaign_id || 'null'});
-        </span>
+        Saved — this affiliate now appears in the Affiliates tab.
       `;
     } catch (err) {
       errEl.textContent = err instanceof Error ? err.message : 'Failed to generate code';
