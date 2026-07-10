@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { fmtPHP } from '../main.js';
+import { fmtPHP } from '../utils.js';
 
 export async function renderCampaigns(): Promise<string> {
   const campaigns = await api.getCampaigns();

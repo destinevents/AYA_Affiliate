@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import type { Affiliate } from '../types.js';
-import { fmtPHP } from '../main.js';
+import { fmtPHP } from '../utils.js';
 
 export async function renderAffiliates(): Promise<string> {
   const affiliates = await api.getAffiliates();

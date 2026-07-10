@@ -1,8 +1,7 @@
 import { getToken, clearToken } from './auth.js';
 import type { Affiliate, Campaign, Conversion } from './types.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const BASE = (import.meta as any).env?.VITE_API_URL ?? '';
+const BASE = import.meta.env.VITE_API_URL ?? '';
 
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getToken();

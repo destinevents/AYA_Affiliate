@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import { setToken } from '../auth.js';
 
-export function renderLogin(onSuccess: () => void): string {
+export function renderLogin(): string {
   return `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--pine-deep);">
       <div style="background:#fff;border-radius:12px;padding:40px;width:100%;max-width:380px;">

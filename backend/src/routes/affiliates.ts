@@ -1,38 +1,45 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { query } from '../db/index.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response): Promise<void> => {
-  const rows = await query('SELECT * FROM affiliates ORDER BY joined_at DESC');
-  res.json(rows);
+const createSchema = z.object({
+  member_name: z.string().min(1).max(120),
+  business: z.string().max(120).optional(),
+  code: z.string().min(2).max(20).regex(/^[A-Za-z0-9]+$/, 'Code must be alphanumeric'),
+  commission_rate: z.number().min(1).max(50),
 });
 
-router.post('/', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  const { member_name, business, code, commission_rate } = req.body as {
-    member_name: string; business?: string; code: string; commission_rate: number;
-  };
-  const rows = await query(
-    'INSERT INTO affiliates (member_name, business, code, commission_rate) VALUES ($1,$2,$3,$4) RETURNING *',
-    [member_name, business ?? null, code.toUpperCase(), commission_rate]
-  );
-  res.status(201).json(rows[0]);
+router.get('/', requireAuth, async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const rows = await query('SELECT * FROM affiliates ORDER BY joined_at DESC');
+    res.json(rows);
+  } catch (err) { next(err); }
 });
 
-router.patch('/:id/status', requireAuth, async (req: AuthRequest, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const rows = await query<{ status: string }>(
-    'SELECT status FROM affiliates WHERE id = $1', [id]
-  );
-  if (!rows.length) { res.status(404).json({ error: 'Not found' }); return; }
+router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { member_name, business, code, commission_rate } = createSchema.parse(req.body);
+    const rows = await query(
+      'INSERT INTO affiliates (member_name, business, code, commission_rate) VALUES ($1,$2,$3,$4) RETURNING *',
+      [member_name, business ?? null, code.toUpperCase(), commission_rate]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
 
-  const newStatus = rows[0].status === 'active' ? 'paused' : 'active';
-  const updated = await query(
-    'UPDATE affiliates SET status = $1 WHERE id = $2 RETURNING *',
-    [newStatus, id]
-  );
-  res.json(updated[0]);
+router.patch('/:id/status', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const rows = await query<{ status: string }>('SELECT status FROM affiliates WHERE id = $1', [id]);
+    if (!rows.length) { res.status(404).json({ error: 'Affiliate not found' }); return; }
+
+    const newStatus = rows[0].status === 'active' ? 'paused' : 'active';
+    const updated = await query('UPDATE affiliates SET status = $1 WHERE id = $2 RETURNING *', [newStatus, id]);
+    res.json(updated[0]);
+  } catch (err) { next(err); }
 });
 
 export default router;

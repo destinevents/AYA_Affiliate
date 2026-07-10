@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { fmtPHP } from '../main.js';
+import { fmtPHP } from '../utils.js';
 import type { Conversion } from '../types.js';
 
 export async function renderConversions(): Promise<string> {
