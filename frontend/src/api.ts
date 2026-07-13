@@ -1,6 +1,6 @@
 import { clearToken } from './auth.js';
-import type { Affiliate, Campaign, Conversion } from './types.js';
-import { DEMO_AFFILIATES, DEMO_CAMPAIGNS, DEMO_CONVERSIONS } from './demo.js';
+import type { Affiliate, Campaign, Conversion, PromoCode } from './types.js';
+import { DEMO_AFFILIATES, DEMO_CAMPAIGNS, DEMO_CONVERSIONS, DEMO_CODES } from './demo.js';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
 export const IS_DEMO = !BASE;
@@ -56,12 +56,24 @@ export const api = {
   createCampaign: (data: Partial<Campaign>) =>
     req<Campaign>('/api/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
+  deleteCampaign: (id: number): Promise<{ deleted: boolean }> => {
+    if (IS_DEMO) {
+      const i = DEMO_CAMPAIGNS.findIndex(x => x.id === id);
+      if (i !== -1) DEMO_CAMPAIGNS.splice(i, 1);
+      return Promise.resolve({ deleted: true });
+    }
+    return req(`/api/campaigns/${id}`, { method: 'DELETE' });
+  },
+
   generateCode: (data: {
     member_name: string; business?: string; code: string;
     commission_rate: number; campaign_id?: number;
   }) => req<{ affiliate: Affiliate; promo_code: unknown }>('/api/codes/generate', {
     method: 'POST', body: JSON.stringify(data),
   }),
+
+  getCodes: (): Promise<PromoCode[]> =>
+    IS_DEMO ? Promise.resolve(DEMO_CODES) : req('/api/codes'),
 
   getConversions: (): Promise<Conversion[]> =>
     IS_DEMO ? Promise.resolve(DEMO_CONVERSIONS) : req('/api/conversions'),

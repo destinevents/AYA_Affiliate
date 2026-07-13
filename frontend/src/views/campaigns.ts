@@ -14,6 +14,9 @@ export async function renderCampaigns(): Promise<string> {
         <td>${c.codes_linked}</td>
         <td>${c.conversions}</td>
         <td>${fmtPHP(parseFloat(c.revenue))}</td>
+        <td style="white-space:nowrap;">
+          <button class="small-btn ghost" data-delete-campaign="${c.id}" data-name="${esc(c.name)}">Delete</button>
+        </td>
       </tr>
     `;
   }).join('');
@@ -22,9 +25,9 @@ export async function renderCampaigns(): Promise<string> {
     <table class="data-table">
       <thead><tr>
         <th>Campaign</th><th>Status</th><th>Window</th>
-        <th>Codes Linked</th><th>Conversions</th><th>Revenue Generated</th>
+        <th>Codes Linked</th><th>Conversions</th><th>Revenue Generated</th><th></th>
       </tr></thead>
-      <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">No campaigns yet — create one below</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">No campaigns yet — create one below</td></tr>'}</tbody>
     </table>
 
     <div style="margin-top:32px;">
@@ -67,6 +70,23 @@ export async function renderCampaigns(): Promise<string> {
 }
 
 export function attachCampaignHandlers(reload: () => void): void {
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-campaign]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = Number(btn.dataset.deleteCampaign);
+      const name = btn.dataset.name ?? 'this campaign';
+      if (!confirm(`Delete "${name}"? Any codes linked to it will become standing codes.`)) return;
+      btn.disabled = true;
+      try {
+        await api.deleteCampaign(id);
+        reload();
+      } catch (err) {
+        btn.disabled = false;
+        const msg = err instanceof Error ? err.message : 'Failed to delete';
+        try { alert(JSON.parse(msg).error ?? msg); } catch { alert(msg); }
+      }
+    });
+  });
+
   const toggleBtn = document.getElementById('toggle-campaign-form')!;
   const formWrap = document.getElementById('campaign-form-wrap')!;
   const errEl = document.getElementById('camp-error')!;

@@ -1,4 +1,4 @@
-import type { Affiliate, Campaign, Conversion } from './types.js';
+import type { Affiliate, Campaign, Conversion, PromoCode } from './types.js';
 
 export const DEMO_AFFILIATES: Affiliate[] = [
   { id: 1, member_name: 'Maria Santos',          business: 'Highland Threads',           code: 'MARIA15',    commission_rate: '15.00', status: 'active',  joined_at: '2026-06-10T00:00:00Z', lifetime_earned: '1850.00' },
@@ -11,6 +11,12 @@ export const DEMO_CAMPAIGNS: Campaign[] = [
   { id: 1, name: 'DAYAW Launch Push',     status: 'active',   start_date: '2026-06-01', end_date: '2026-08-22', codes_linked: 3, conversions: 14, revenue: '18500.00' },
   { id: 2, name: 'RE:BLOOM Early Bird',   status: 'active',   start_date: '2026-06-01', end_date: '2026-07-11', codes_linked: 2, conversions: 6,  revenue: '4500.00'  },
   { id: 3, name: 'Founding Member Drive', status: 'upcoming', start_date: '2026-07-01', end_date: '2026-09-30', codes_linked: 0, conversions: 0,  revenue: '0.00'     },
+];
+
+export const DEMO_CODES: PromoCode[] = [
+  { id: 1, code: 'MARIA15',    affiliate_id: 1, campaign_id: 1, member_name: 'Maria Santos',         commission_rate: '15.00', campaign_name: 'DAYAW Launch Push'   },
+  { id: 2, code: 'MONICA10',   affiliate_id: 2, campaign_id: 2, member_name: 'Monica Joy Fernandez', commission_rate: '10.00', campaign_name: 'RE:BLOOM Early Bird' },
+  { id: 4, code: 'FRAMEFOG10', affiliate_id: 4, campaign_id: null, member_name: 'Frame & Fog Studios', commission_rate: '10.00', campaign_name: null                },
 ];
 
 export const DEMO_CONVERSIONS: Conversion[] = [

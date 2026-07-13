@@ -20,6 +20,16 @@ export interface Campaign {
   revenue: string;
 }
 
+export interface PromoCode {
+  id: number;
+  code: string;
+  affiliate_id: number;
+  campaign_id: number | null;
+  member_name: string;
+  commission_rate: string;
+  campaign_name: string | null;
+}
+
 export interface Conversion {
   id: number;
   affiliate_id: number;

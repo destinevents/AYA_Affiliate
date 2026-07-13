@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { query } from '../db/index.js';
+import { query, withTransaction } from '../db/index.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -38,6 +38,32 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: Next
       [name, status, start_date, end_date]
     );
     res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+
+    const existing = await query('SELECT id FROM affiliate_campaigns WHERE id = $1', [id]);
+    if (!existing.length) { res.status(404).json({ error: 'Campaign not found' }); return; }
+
+    const conversions = await query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+       FROM referral_conversions r
+       JOIN promo_codes p ON p.code = r.promo_code
+       WHERE p.campaign_id = $1`, [id]
+    );
+    if (parseInt(conversions[0].count) > 0) {
+      res.status(409).json({ error: 'This campaign has recorded conversions and cannot be deleted — mark it as ended instead to preserve the payout history.' });
+      return;
+    }
+
+    await withTransaction(async (client) => {
+      await client.query('UPDATE promo_codes SET campaign_id = NULL WHERE campaign_id = $1', [id]);
+      await client.query('DELETE FROM affiliate_campaigns WHERE id = $1', [id]);
+    });
+    res.json({ deleted: true });
   } catch (err) { next(err); }
 });
 

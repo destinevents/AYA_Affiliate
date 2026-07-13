@@ -1,11 +1,11 @@
 import { api } from '../api.js';
 import { fmtPHP, esc } from '../utils.js';
-import type { Conversion, Affiliate } from '../types.js';
+import type { Conversion, PromoCode } from '../types.js';
 
 export async function renderConversions(): Promise<string> {
-  const [conversions, affiliates] = await Promise.all([
+  const [conversions, codes] = await Promise.all([
     api.getConversions(),
-    api.getAffiliates(),
+    api.getCodes(),
   ]);
 
   const totalRevenue = conversions
@@ -42,9 +42,12 @@ export async function renderConversions(): Promise<string> {
     </tr>
   `).join('');
 
-  const affiliateOptions = affiliates
-    .filter(a => a.status === 'active')
-    .map(a => `<option value="${a.id}" data-code="${a.code}">${esc(a.member_name)} — ${a.code}</option>`)
+  const codeOptions = codes
+    .map((p: PromoCode) => {
+      const project = p.campaign_name ? esc(p.campaign_name) : 'Standing Code';
+      const rate = parseFloat(p.commission_rate);
+      return `<option value="${esc(p.code)}" data-affiliate="${p.affiliate_id}">${project} — ${esc(p.code)} (${rate}%)</option>`;
+    })
     .join('');
 
   return `
@@ -78,16 +81,11 @@ export async function renderConversions(): Promise<string> {
       <div id="conv-form-wrap" style="display:none;">
         <div class="form-card" style="max-width:560px;">
           <div class="field-group">
-            <label class="field-label">Affiliate</label>
-            <select class="field-input" id="conv-affiliate">
-              <option value="">— Select affiliate —</option>
-              ${affiliateOptions}
+            <label class="field-label">Project — Referral Code</label>
+            <select class="field-input" id="conv-code-sel">
+              <option value="">— Select project &amp; code —</option>
+              ${codeOptions}
             </select>
-          </div>
-          <div class="field-group">
-            <label class="field-label">Code Used</label>
-            <input type="text" class="field-input" id="conv-code" placeholder="Auto-filled from affiliate" readonly
-              style="background:var(--fog-2);color:var(--muted);">
           </div>
           <div class="field-group">
             <label class="field-label">Buyer Action</label>
@@ -145,22 +143,15 @@ export function attachConversionHandlers(reload: () => void): void {
     toggleBtn.textContent = '+ Record Conversion';
   });
 
-  // Auto-fill code when affiliate selected
-  const affiliateSel = document.getElementById('conv-affiliate') as HTMLSelectElement;
-  const codeInput = document.getElementById('conv-code') as HTMLInputElement;
-  affiliateSel?.addEventListener('change', () => {
-    const selected = affiliateSel.selectedOptions[0];
-    codeInput.value = selected?.dataset.code ?? '';
-  });
-
   document.getElementById('conv-submit')?.addEventListener('click', async () => {
     errEl.style.display = 'none';
-    const affiliate_id = Number(affiliateSel.value);
-    const promo_code = codeInput.value.trim();
+    const codeSel = document.getElementById('conv-code-sel') as HTMLSelectElement;
+    const promo_code = codeSel.value.trim();
+    const affiliate_id = Number(codeSel.selectedOptions[0]?.dataset.affiliate);
     const buyer_action = (document.getElementById('conv-action') as HTMLInputElement).value.trim();
     const sale_amount = Number((document.getElementById('conv-amount') as HTMLInputElement).value);
 
-    if (!affiliate_id || !buyer_action || !sale_amount) {
+    if (!promo_code || !affiliate_id || !buyer_action || !sale_amount) {
       errEl.textContent = 'All fields are required';
       errEl.style.display = 'block';
       return;

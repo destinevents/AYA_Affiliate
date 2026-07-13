@@ -13,6 +13,27 @@ const generateSchema = z.object({
   campaign_id: z.number().int().positive().optional(),
 });
 
+router.get('/', requireAuth, async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const rows = await query(`
+      SELECT
+        p.id,
+        p.code,
+        p.affiliate_id,
+        p.campaign_id,
+        a.member_name,
+        a.commission_rate,
+        c.name AS campaign_name
+      FROM promo_codes p
+      JOIN affiliates a ON a.id = p.affiliate_id
+      LEFT JOIN affiliate_campaigns c ON c.id = p.campaign_id
+      WHERE a.status = 'active'
+      ORDER BY COALESCE(c.name, 'ZZZZ'), p.code
+    `);
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 router.post('/generate', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { member_name, business, code, commission_rate, campaign_id } = generateSchema.parse(req.body);
