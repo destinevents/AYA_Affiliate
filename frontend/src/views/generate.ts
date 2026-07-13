@@ -26,7 +26,7 @@ export async function renderGenerate(): Promise<string> {
         <div class="field-group" style="flex:1;">
           <label class="field-label">Code</label>
           <input type="text" class="field-input" id="gen-code" placeholder="e.g. MARIA15">
-          <div class="field-hint">Auto-suggested from name, editable</div>
+          <div class="field-hint">Auto-suggested from name + campaign, editable</div>
         </div>
         <div class="field-group" style="flex:1;">
           <label class="field-label">Commission Rate (%)</label>
@@ -53,12 +53,24 @@ export async function renderGenerate(): Promise<string> {
 export function attachGenerateHandlers(reload: () => void): void {
   const nameInput = document.getElementById('gen-name') as HTMLInputElement;
   const codeInput = document.getElementById('gen-code') as HTMLInputElement;
+  const campaignSel = document.getElementById('gen-campaign') as HTMLSelectElement;
   const errEl = document.getElementById('gen-error')!;
 
-  nameInput?.addEventListener('input', () => {
-    const firstName = nameInput.value.trim().split(' ')[0].toUpperCase();
-    if (firstName) codeInput.value = firstName + Math.floor(Math.random() * 20 + 5);
-  });
+  const suggestCode = () => {
+    const firstName = nameInput.value.trim().split(' ')[0].replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (!firstName) return;
+    const campaignText = campaignSel.selectedOptions[0]?.text ?? '';
+    const hasCampaign = !!campaignSel.value;
+    if (hasCampaign) {
+      const shortName = campaignText.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8);
+      codeInput.value = (firstName + shortName).slice(0, 20);
+    } else {
+      codeInput.value = firstName + Math.floor(Math.random() * 20 + 5);
+    }
+  };
+
+  nameInput?.addEventListener('input', suggestCode);
+  campaignSel?.addEventListener('change', suggestCode);
 
   document.getElementById('gen-submit')?.addEventListener('click', async () => {
     errEl.style.display = 'none';
