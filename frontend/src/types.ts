@@ -7,6 +7,8 @@ export interface Affiliate {
   status: 'active' | 'paused' | 'removed';
   joined_at: string;
   lifetime_earned: string;
+  min_payout: string;
+  pending_commission: string;
 }
 
 export interface Campaign {

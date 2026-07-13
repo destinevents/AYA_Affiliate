@@ -1,10 +1,10 @@
 import type { Affiliate, Campaign, Conversion, PromoCode } from './types.js';
 
 export const DEMO_AFFILIATES: Affiliate[] = [
-  { id: 1, member_name: 'Maria Santos',          business: 'Highland Threads',           code: 'MARIA15',    commission_rate: '15.00', status: 'active',  joined_at: '2026-06-10T00:00:00Z', lifetime_earned: '1850.00' },
-  { id: 2, member_name: 'Monica Joy Fernandez',  business: 'As You Are Baguio',          code: 'MONICA10',   commission_rate: '10.00', status: 'active',  joined_at: '2026-06-08T00:00:00Z', lifetime_earned: '3200.00' },
-  { id: 3, member_name: 'Carlo Reyes',           business: 'Pine Bloom Florals',         code: 'CARLO20',    commission_rate: '20.00', status: 'paused',  joined_at: '2026-06-12T00:00:00Z', lifetime_earned: '400.00'  },
-  { id: 4, member_name: 'Frame & Fog Studios',   business: 'Frame & Fog Studios',        code: 'FRAMEFOG10', commission_rate: '10.00', status: 'active',  joined_at: '2026-06-15T00:00:00Z', lifetime_earned: '0.00'    },
+  { id: 1, member_name: 'Maria Santos',         business: 'Highland Threads',    code: 'MARIA15',    commission_rate: '15.00', status: 'active', joined_at: '2026-06-10T00:00:00Z', lifetime_earned: '1850.00', min_payout: '500.00', pending_commission: '60.00'  },
+  { id: 2, member_name: 'Monica Joy Fernandez', business: 'As You Are Baguio',   code: 'MONICA10',   commission_rate: '10.00', status: 'active', joined_at: '2026-06-08T00:00:00Z', lifetime_earned: '3200.00', min_payout: '500.00', pending_commission: '75.00'  },
+  { id: 3, member_name: 'Carlo Reyes',          business: 'Pine Bloom Florals',  code: 'CARLO20',    commission_rate: '20.00', status: 'paused', joined_at: '2026-06-12T00:00:00Z', lifetime_earned: '400.00',  min_payout: '0.00',   pending_commission: '0.00'   },
+  { id: 4, member_name: 'Frame & Fog Studios',  business: 'Frame & Fog Studios', code: 'FRAMEFOG10', commission_rate: '10.00', status: 'active', joined_at: '2026-06-15T00:00:00Z', lifetime_earned: '0.00',    min_payout: '0.00',   pending_commission: '0.00'   },
 ];
 
 export const DEMO_CAMPAIGNS: Campaign[] = [

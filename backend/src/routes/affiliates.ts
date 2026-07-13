@@ -14,7 +14,14 @@ const createSchema = z.object({
 
 router.get('/', requireAuth, async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const rows = await query('SELECT * FROM affiliates ORDER BY joined_at DESC');
+    const rows = await query(`
+      SELECT a.*,
+        COALESCE(SUM(r.commission_amount) FILTER (WHERE r.status = 'pending'), 0) AS pending_commission
+      FROM affiliates a
+      LEFT JOIN referral_conversions r ON r.affiliate_id = a.id
+      GROUP BY a.id
+      ORDER BY a.joined_at DESC
+    `);
     res.json(rows);
   } catch (err) { next(err); }
 });
@@ -50,6 +57,32 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response, next:
       await client.query('DELETE FROM affiliates WHERE id = $1', [id]);
     });
     res.json({ deleted: true });
+  } catch (err) { next(err); }
+});
+
+const updateSchema = z.object({
+  member_name: z.string().min(1).max(120).optional(),
+  business: z.string().max(120).nullable().optional(),
+  commission_rate: z.number().min(1).max(50).optional(),
+  min_payout: z.number().min(0).optional(),
+});
+
+router.patch('/:id', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const body = updateSchema.parse(req.body);
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    let n = 1;
+    if (body.member_name !== undefined) { sets.push(`member_name = $${n++}`); vals.push(body.member_name); }
+    if ('business' in body) { sets.push(`business = $${n++}`); vals.push(body.business ?? null); }
+    if (body.commission_rate !== undefined) { sets.push(`commission_rate = $${n++}`); vals.push(body.commission_rate); }
+    if (body.min_payout !== undefined) { sets.push(`min_payout = $${n++}`); vals.push(body.min_payout); }
+    if (!sets.length) { res.status(400).json({ error: 'No fields to update' }); return; }
+    vals.push(id);
+    const rows = await query(`UPDATE affiliates SET ${sets.join(', ')} WHERE id = $${n} RETURNING *`, vals);
+    if (!rows.length) { res.status(404).json({ error: 'Affiliate not found' }); return; }
+    res.json(rows[0]);
   } catch (err) { next(err); }
 });
 

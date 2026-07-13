@@ -7,6 +7,7 @@ import affiliatesRouter from './routes/affiliates.js';
 import campaignsRouter from './routes/campaigns.js';
 import codesRouter from './routes/codes.js';
 import conversionsRouter from './routes/conversions.js';
+import webhookRouter from './routes/webhook.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/affiliates', affiliatesRouter);
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/codes', codesRouter);
 app.use('/api/conversions', conversionsRouter);
+app.use('/api/webhook', webhookRouter);
 
 // Must be registered after all routes
 app.use(errorHandler);

@@ -1,11 +1,12 @@
 import { api } from '../api.js';
 import { fmtPHP, esc } from '../utils.js';
-import type { Conversion, PromoCode } from '../types.js';
+import type { Affiliate, Conversion, PromoCode } from '../types.js';
 
 export async function renderConversions(): Promise<string> {
-  const [conversions, codes] = await Promise.all([
+  const [conversions, codes, affiliates] = await Promise.all([
     api.getConversions(),
     api.getCodes(),
+    api.getAffiliates(),
   ]);
 
   const totalRevenue = conversions
@@ -50,6 +51,38 @@ export async function renderConversions(): Promise<string> {
     })
     .join('');
 
+  const pendingByAffiliate = new Map<number, { aff: Affiliate; total: number }>();
+  for (const c of conversions.filter(c => c.status === 'pending')) {
+    const aff = affiliates.find(a => a.id === c.affiliate_id);
+    if (!aff) continue;
+    const entry = pendingByAffiliate.get(c.affiliate_id) ?? { aff, total: 0 };
+    pendingByAffiliate.set(c.affiliate_id, { aff, total: entry.total + parseFloat(c.commission_amount) });
+  }
+
+  const payAllRows = [...pendingByAffiliate.values()].map(({ aff, total }) => {
+    const minPayout = parseFloat(aff.min_payout);
+    const belowThreshold = minPayout > 0 && total < minPayout;
+    return `
+      <tr>
+        <td><strong style="color:var(--pine);">${esc(aff.member_name)}</strong></td>
+        <td><strong style="color:var(--terra);">${fmtPHP(total)}</strong></td>
+        <td>
+          ${belowThreshold
+            ? `<span style="color:var(--muted);font-size:0.74rem;">below ₱${minPayout} minimum</span>`
+            : `<button class="small-btn primary" data-pay-all="${aff.id}" data-name="${esc(aff.member_name)}">Pay All</button>`}
+        </td>
+      </tr>`;
+  }).join('');
+
+  const payAllSection = payAllRows ? `
+    <div style="margin-top:32px;margin-bottom:28px;">
+      <div style="font-family:'Fraunces',serif;font-size:1rem;color:var(--pine);margin-bottom:10px;font-weight:400;">Pending Payouts by Affiliate</div>
+      <table class="data-table" style="max-width:560px;">
+        <thead><tr><th>Affiliate</th><th>Pending Commission</th><th></th></tr></thead>
+        <tbody>${payAllRows}</tbody>
+      </table>
+    </div>` : '';
+
   return `
     <h3 style="font-family:'Fraunces',serif;font-size:1.1rem;color:var(--pine);margin-bottom:14px;font-weight:400;">How a Conversion Is Created</h3>
     <div class="flow-row">
@@ -63,6 +96,13 @@ export async function renderConversions(): Promise<string> {
       <div class="metric-card"><div class="metric-label">Total Revenue (via codes)</div><div class="metric-value">${fmtPHP(totalRevenue)}</div></div>
       <div class="metric-card"><div class="metric-label">Commission Paid</div><div class="metric-value">${fmtPHP(commissionPaid)}</div></div>
       <div class="metric-card"><div class="metric-label">Commission Pending</div><div class="metric-value">${fmtPHP(commissionPending)}</div><div class="metric-sub">${pendingCount} awaiting payout</div></div>
+    </div>
+
+    ${payAllSection}
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-family:'Fraunces',serif;font-size:1rem;color:var(--pine);font-weight:400;">All Conversions</span>
+      <button class="small-btn ghost" id="export-csv-btn" style="font-size:0.6rem;padding:6px 14px;">↓ Export CSV</button>
     </div>
 
     <table class="data-table">
@@ -108,6 +148,28 @@ export async function renderConversions(): Promise<string> {
 }
 
 export function attachConversionHandlers(reload: () => void): void {
+  document.querySelectorAll<HTMLButtonElement>('[data-pay-all]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = Number(btn.dataset.payAll);
+      const name = btn.dataset.name ?? 'this affiliate';
+      if (!confirm(`Pay all pending commissions for ${name}?`)) return;
+      btn.disabled = true;
+      try {
+        const result = await api.payAllPending(id);
+        reload();
+        if (result.paid === 0) alert('No pending conversions to pay.');
+      } catch (err) {
+        btn.disabled = false;
+        const msg = err instanceof Error ? err.message : 'Failed to pay';
+        try { alert(JSON.parse(msg).error ?? msg); } catch { alert(msg); }
+      }
+    });
+  });
+
+  document.getElementById('export-csv-btn')?.addEventListener('click', async () => {
+    await api.exportCSV();
+  });
+
   // Mark Paid buttons
   document.querySelectorAll<HTMLButtonElement>('[data-pay]').forEach(btn => {
     btn.addEventListener('click', async () => {

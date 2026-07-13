@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS affiliates (
   commission_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','removed')),
   joined_at TIMESTAMPTZ DEFAULT NOW(),
-  lifetime_earned DECIMAL(10,2) DEFAULT 0
+  lifetime_earned DECIMAL(10,2) DEFAULT 0,
+  min_payout DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS affiliate_campaigns (

@@ -44,6 +44,34 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: Next
   } catch (err) { next(err); }
 });
 
+const updateCampaignSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  type: z.enum(['event', 'product']).optional(),
+  status: z.enum(['active', 'upcoming', 'ended']).optional(),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+});
+
+router.patch('/:id', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const body = updateCampaignSchema.parse(req.body);
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    let n = 1;
+    if (body.name !== undefined) { sets.push(`name = $${n++}`); vals.push(body.name); }
+    if (body.type !== undefined) { sets.push(`type = $${n++}`); vals.push(body.type); }
+    if (body.status !== undefined) { sets.push(`status = $${n++}`); vals.push(body.status); }
+    if ('start_date' in body) { sets.push(`start_date = $${n++}`); vals.push(body.start_date ?? null); }
+    if ('end_date' in body) { sets.push(`end_date = $${n++}`); vals.push(body.end_date ?? null); }
+    if (!sets.length) { res.status(400).json({ error: 'No fields to update' }); return; }
+    vals.push(id);
+    const rows = await query(`UPDATE affiliate_campaigns SET ${sets.join(', ')} WHERE id = $${n} RETURNING *`, vals);
+    if (!rows.length) { res.status(404).json({ error: 'Campaign not found' }); return; }
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
 router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = z.coerce.number().int().positive().parse(req.params.id);

@@ -46,6 +46,66 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: Next
   } catch (err) { next(err); }
 });
 
+router.post('/pay-all', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { affiliate_id } = z.object({ affiliate_id: z.number().int().positive() }).parse(req.body);
+
+    const affRows = await query<{ min_payout: string }>(
+      'SELECT min_payout FROM affiliates WHERE id = $1', [affiliate_id]
+    );
+    if (!affRows.length) { res.status(404).json({ error: 'Affiliate not found' }); return; }
+
+    const pending = await query<{ id: number; commission_amount: string }>(
+      `SELECT id, commission_amount FROM referral_conversions
+       WHERE affiliate_id = $1 AND status = 'pending'`, [affiliate_id]
+    );
+    if (!pending.length) { res.status(409).json({ error: 'No pending conversions for this affiliate' }); return; }
+
+    const total = pending.reduce((s, r) => s + parseFloat(r.commission_amount), 0);
+    const minPayout = parseFloat(affRows[0].min_payout);
+    if (minPayout > 0 && total < minPayout) {
+      res.status(409).json({
+        error: `Pending commission (₱${total.toFixed(2)}) is below the minimum payout threshold (₱${minPayout.toFixed(2)})`,
+      });
+      return;
+    }
+
+    await withTransaction(async (client) => {
+      await client.query(
+        `UPDATE referral_conversions SET status = 'paid' WHERE affiliate_id = $1 AND status = 'pending'`,
+        [affiliate_id]
+      );
+      await client.query(
+        'UPDATE affiliates SET lifetime_earned = lifetime_earned + $1 WHERE id = $2',
+        [total.toFixed(2), affiliate_id]
+      );
+    });
+    res.json({ paid: pending.length, total_commission: total.toFixed(2) });
+  } catch (err) { next(err); }
+});
+
+router.get('/export', requireAuth, async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const rows = await query<Record<string, unknown>>(`
+      SELECT r.id, a.member_name, r.promo_code, r.buyer_action,
+             r.sale_amount, r.commission_amount, r.status,
+             TO_CHAR(r.created_at, 'YYYY-MM-DD') AS date
+      FROM referral_conversions r
+      JOIN affiliates a ON a.id = r.affiliate_id
+      ORDER BY r.created_at DESC
+    `);
+    const escape = (v: string) => v.includes(',') || v.includes('"') || v.includes('\n')
+      ? `"${v.replace(/"/g, '""')}"` : v;
+    const header = 'ID,Affiliate,Code,Buyer Action,Sale Amount,Commission,Status,Date\n';
+    const body = rows.map(r =>
+      `${r.id},${escape(String(r.member_name))},${r.promo_code},${escape(String(r.buyer_action))},${r.sale_amount},${r.commission_amount},${r.status},${r.date}`
+    ).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="aya-commissions.csv"');
+    res.send(header + body);
+  } catch (err) { next(err); }
+});
+
 router.patch('/:id/pay', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = z.coerce.number().int().positive().parse(req.params.id);

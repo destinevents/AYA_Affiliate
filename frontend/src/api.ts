@@ -72,6 +72,64 @@ export const api = {
     method: 'POST', body: JSON.stringify(data),
   }),
 
+  updateAffiliate: (id: number, data: { member_name?: string; business?: string | null; commission_rate?: number; min_payout?: number }): Promise<Affiliate> => {
+    if (IS_DEMO) {
+      const i = DEMO_AFFILIATES.findIndex(a => a.id === id);
+      if (i !== -1) Object.assign(DEMO_AFFILIATES[i], data);
+      return Promise.resolve(DEMO_AFFILIATES[i]);
+    }
+    return req<Affiliate>(`/api/affiliates/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+
+  updateCampaign: (id: number, data: Partial<Campaign>): Promise<Campaign> => {
+    if (IS_DEMO) {
+      const i = DEMO_CAMPAIGNS.findIndex(c => c.id === id);
+      if (i !== -1) Object.assign(DEMO_CAMPAIGNS[i], data);
+      return Promise.resolve(DEMO_CAMPAIGNS[i]);
+    }
+    return req<Campaign>(`/api/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+
+  payAllPending: (affiliate_id: number): Promise<{ paid: number; total_commission: string }> => {
+    if (IS_DEMO) {
+      const pending = DEMO_CONVERSIONS.filter(c => c.affiliate_id === affiliate_id && c.status === 'pending');
+      const total = pending.reduce((s, c) => s + parseFloat(c.commission_amount), 0);
+      pending.forEach(c => { c.status = 'paid'; });
+      const aff = DEMO_AFFILIATES.find(a => a.id === affiliate_id);
+      if (aff) aff.lifetime_earned = (parseFloat(aff.lifetime_earned) + total).toFixed(2);
+      return Promise.resolve({ paid: pending.length, total_commission: total.toFixed(2) });
+    }
+    return req('/api/conversions/pay-all', { method: 'POST', body: JSON.stringify({ affiliate_id }) });
+  },
+
+  exportCSV: (): Promise<void> => {
+    const download = (csv: string) => {
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'aya-commissions.csv'; a.click();
+      URL.revokeObjectURL(url);
+    };
+    if (IS_DEMO) {
+      const header = 'ID,Affiliate,Code,Buyer Action,Sale Amount,Commission,Status,Date\n';
+      const rows = DEMO_CONVERSIONS.map(c => {
+        const name = DEMO_AFFILIATES.find(a => a.id === c.affiliate_id)?.member_name ?? '';
+        return `${c.id},"${name}",${c.promo_code},"${c.buyer_action}",${c.sale_amount},${c.commission_amount},${c.status},${c.created_at.slice(0, 10)}`;
+      }).join('\n');
+      download(header + rows);
+      return Promise.resolve();
+    }
+    const token = localStorage.getItem('aya_admin_token');
+    return fetch(`${BASE}/api/conversions/export`, {
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+    }).then(r => r.blob()).then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'aya-commissions.csv'; a.click();
+      URL.revokeObjectURL(url);
+    });
+  },
+
   getCodes: (): Promise<PromoCode[]> =>
     IS_DEMO ? Promise.resolve(DEMO_CODES) : req('/api/codes'),
 
