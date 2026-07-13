@@ -12,9 +12,10 @@ export interface Affiliate {
 export interface Campaign {
   id: number;
   name: string;
+  type: 'event' | 'product';
   status: 'active' | 'upcoming' | 'ended';
-  start_date: string;
-  end_date: string;
+  start_date: string | null;
+  end_date: string | null;
   codes_linked: number;
   conversions: number;
   revenue: string;

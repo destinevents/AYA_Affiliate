@@ -7,9 +7,12 @@ const router = Router();
 
 const createSchema = z.object({
   name: z.string().min(1).max(120),
+  type: z.enum(['event', 'product']).default('event'),
   status: z.enum(['active', 'upcoming', 'ended']).default('upcoming'),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
-  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
+}).refine(data => data.type !== 'event' || (!!data.start_date && !!data.end_date), {
+  message: 'Start and end dates are required for events',
 });
 
 router.get('/', requireAuth, async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -32,10 +35,10 @@ router.get('/', requireAuth, async (_req: AuthRequest, res: Response, next: Next
 
 router.post('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { name, status, start_date, end_date } = createSchema.parse(req.body);
+    const { name, type, status, start_date, end_date } = createSchema.parse(req.body);
     const rows = await query(
-      'INSERT INTO affiliate_campaigns (name, status, start_date, end_date) VALUES ($1,$2,$3,$4) RETURNING *',
-      [name, status, start_date, end_date]
+      'INSERT INTO affiliate_campaigns (name, type, status, start_date, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [name, type, status, start_date ?? null, end_date ?? null]
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }

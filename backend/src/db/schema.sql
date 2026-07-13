@@ -12,9 +12,10 @@ CREATE TABLE IF NOT EXISTS affiliates (
 CREATE TABLE IF NOT EXISTS affiliate_campaigns (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'event' CHECK (type IN ('event','product')),
   status TEXT NOT NULL DEFAULT 'upcoming' CHECK (status IN ('active','upcoming','ended')),
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
+  start_date DATE,
+  end_date DATE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

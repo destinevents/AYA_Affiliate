@@ -8,9 +8,10 @@ export const DEMO_AFFILIATES: Affiliate[] = [
 ];
 
 export const DEMO_CAMPAIGNS: Campaign[] = [
-  { id: 1, name: 'DAYAW Launch Push',     status: 'active',   start_date: '2026-06-01', end_date: '2026-08-22', codes_linked: 3, conversions: 14, revenue: '18500.00' },
-  { id: 2, name: 'RE:BLOOM Early Bird',   status: 'active',   start_date: '2026-06-01', end_date: '2026-07-11', codes_linked: 2, conversions: 6,  revenue: '4500.00'  },
-  { id: 3, name: 'Founding Member Drive', status: 'upcoming', start_date: '2026-07-01', end_date: '2026-09-30', codes_linked: 0, conversions: 0,  revenue: '0.00'     },
+  { id: 1, name: 'DAYAW Launch Push',     type: 'event',   status: 'active',   start_date: '2026-06-01', end_date: '2026-08-22', codes_linked: 3, conversions: 14, revenue: '18500.00' },
+  { id: 2, name: 'RE:BLOOM Early Bird',   type: 'event',   status: 'active',   start_date: '2026-06-01', end_date: '2026-07-11', codes_linked: 2, conversions: 6,  revenue: '4500.00'  },
+  { id: 3, name: 'Founding Member Drive', type: 'event',   status: 'upcoming', start_date: '2026-07-01', end_date: '2026-09-30', codes_linked: 0, conversions: 0,  revenue: '0.00'     },
+  { id: 4, name: 'KusinaIQ',              type: 'product', status: 'active',   start_date: null,         end_date: null,         codes_linked: 1, conversions: 2,  revenue: '1200.00'  },
 ];
 
 export const DEMO_CODES: PromoCode[] = [
