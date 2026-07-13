@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { fmtPHP } from '../utils.js';
+import { fmtPHP, esc } from '../utils.js';
 import type { Conversion, Affiliate } from '../types.js';
 
 export async function renderConversions(): Promise<string> {
@@ -22,15 +22,15 @@ export async function renderConversions(): Promise<string> {
   const rows = conversions.map((c: Conversion) => `
     <tr>
       <td style="color:var(--muted);font-size:0.74rem;">${c.created_at.slice(0, 10)}</td>
-      <td>${c.member_name}</td>
-      <td><span class="code-tag">${c.promo_code}</span></td>
-      <td style="font-size:0.74rem;">${c.buyer_action}</td>
+      <td>${esc(c.member_name)}</td>
+      <td><span class="code-tag">${esc(c.promo_code)}</span></td>
+      <td style="font-size:0.74rem;">${esc(c.buyer_action)}</td>
       <td>${fmtPHP(parseFloat(c.sale_amount))}</td>
       <td>
         <strong style="color:var(--terra);">${fmtPHP(parseFloat(c.commission_amount))}</strong>
         <span style="color:var(--muted);font-size:0.66rem;">(${parseFloat(c.commission_rate)}%)</span>
       </td>
-      <td><span class="pill ${c.status}">${c.status}</span></td>
+      <td><span class="pill ${c.status}">${esc(c.status)}</span></td>
       <td style="white-space:nowrap;">
         ${c.status === 'pending'
           ? `<button class="small-btn primary" data-pay="${c.id}">Mark Paid</button>`
@@ -44,7 +44,7 @@ export async function renderConversions(): Promise<string> {
 
   const affiliateOptions = affiliates
     .filter(a => a.status === 'active')
-    .map(a => `<option value="${a.id}" data-code="${a.code}">${a.member_name} — ${a.code}</option>`)
+    .map(a => `<option value="${a.id}" data-code="${a.code}">${esc(a.member_name)} — ${a.code}</option>`)
     .join('');
 
   return `

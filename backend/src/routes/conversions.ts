@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { query } from '../db/index.js';
+import { query, withTransaction } from '../db/index.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -60,14 +60,16 @@ router.patch('/:id/pay', requireAuth, async (req: AuthRequest, res: Response, ne
     }
 
     const { affiliate_id, commission_amount } = convRows[0];
-    await query('UPDATE referral_conversions SET status = $1 WHERE id = $2', ['paid', id]);
-    await query(
-      'UPDATE affiliates SET lifetime_earned = lifetime_earned + $1 WHERE id = $2',
-      [commission_amount, affiliate_id]
-    );
-
-    const updated = await query('SELECT * FROM referral_conversions WHERE id = $1', [id]);
-    res.json(updated[0]);
+    const updated = await withTransaction(async (client) => {
+      await client.query('UPDATE referral_conversions SET status = $1 WHERE id = $2', ['paid', id]);
+      await client.query(
+        'UPDATE affiliates SET lifetime_earned = lifetime_earned + $1 WHERE id = $2',
+        [commission_amount, affiliate_id]
+      );
+      const result = await client.query('SELECT * FROM referral_conversions WHERE id = $1', [id]);
+      return result.rows[0];
+    });
+    res.json(updated);
   } catch (err) { next(err); }
 });
 
@@ -87,17 +89,19 @@ router.patch('/:id/void', requireAuth, async (req: AuthRequest, res: Response, n
     const wasPaid = convRows[0].status === 'paid';
     const { affiliate_id, commission_amount } = convRows[0];
 
-    await query('UPDATE referral_conversions SET status = $1 WHERE id = $2', ['void', id]);
-    // If it was already paid out, roll the commission back off the affiliate's lifetime total
-    if (wasPaid) {
-      await query(
-        'UPDATE affiliates SET lifetime_earned = lifetime_earned - $1 WHERE id = $2',
-        [commission_amount, affiliate_id]
-      );
-    }
-
-    const updated = await query('SELECT * FROM referral_conversions WHERE id = $1', [id]);
-    res.json(updated[0]);
+    const updated = await withTransaction(async (client) => {
+      await client.query('UPDATE referral_conversions SET status = $1 WHERE id = $2', ['void', id]);
+      // If it was already paid out, roll the commission back off the affiliate's lifetime total
+      if (wasPaid) {
+        await client.query(
+          'UPDATE affiliates SET lifetime_earned = lifetime_earned - $1 WHERE id = $2',
+          [commission_amount, affiliate_id]
+        );
+      }
+      const result = await client.query('SELECT * FROM referral_conversions WHERE id = $1', [id]);
+      return result.rows[0];
+    });
+    res.json(updated);
   } catch (err) { next(err); }
 });
 

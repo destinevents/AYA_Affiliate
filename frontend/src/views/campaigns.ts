@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { fmtPHP } from '../utils.js';
+import { fmtPHP, esc } from '../utils.js';
 
 export async function renderCampaigns(): Promise<string> {
   const campaigns = await api.getCampaigns();
@@ -8,9 +8,9 @@ export async function renderCampaigns(): Promise<string> {
     const statusClass = c.status === 'active' ? 'active' : c.status === 'upcoming' ? 'upcoming' : 'ended';
     return `
       <tr>
-        <td><strong style="color:var(--pine);">${c.name}</strong></td>
-        <td><span class="pill ${statusClass}">${c.status}</span></td>
-        <td style="color:var(--muted);font-size:0.74rem;">${c.start_date} → ${c.end_date}</td>
+        <td><strong style="color:var(--pine);">${esc(c.name)}</strong></td>
+        <td><span class="pill ${statusClass}">${esc(c.status)}</span></td>
+        <td style="color:var(--muted);font-size:0.74rem;">${esc(c.start_date)} → ${esc(c.end_date)}</td>
         <td>${c.codes_linked}</td>
         <td>${c.conversions}</td>
         <td>${fmtPHP(parseFloat(c.revenue))}</td>

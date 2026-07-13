@@ -17,6 +17,10 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(morgan('combined'));
+if (!process.env.FRONTEND_URL) {
+  console.warn('[WARN] FRONTEND_URL is not set — CORS origin defaults to * (open). Set this in production.');
+}
+
 app.use(cors({
   origin: process.env.FRONTEND_URL ?? '*',
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],

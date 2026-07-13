@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { query } from '../db/index.js';
+import { query, withTransaction } from '../db/index.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -24,18 +24,22 @@ router.post('/generate', requireAuth, async (req: AuthRequest, res: Response, ne
       return;
     }
 
-    const affiliateRows = await query(
-      'INSERT INTO affiliates (member_name, business, code, commission_rate) VALUES ($1,$2,$3,$4) RETURNING *',
-      [member_name, business ?? null, upperCode, commission_rate]
-    );
-    const affiliate = affiliateRows[0] as { id: number };
+    const result = await withTransaction(async (client) => {
+      const affiliateRows = await client.query(
+        'INSERT INTO affiliates (member_name, business, code, commission_rate) VALUES ($1,$2,$3,$4) RETURNING *',
+        [member_name, business ?? null, upperCode, commission_rate]
+      );
+      const affiliate = affiliateRows.rows[0] as { id: number };
 
-    const codeRows = await query(
-      'INSERT INTO promo_codes (code, discount_type, affiliate_id, campaign_id) VALUES ($1,$2,$3,$4) RETURNING *',
-      [upperCode, 'percentage', affiliate.id, campaign_id ?? null]
-    );
+      const codeRows = await client.query(
+        'INSERT INTO promo_codes (code, discount_type, affiliate_id, campaign_id) VALUES ($1,$2,$3,$4) RETURNING *',
+        [upperCode, 'percentage', affiliate.id, campaign_id ?? null]
+      );
 
-    res.status(201).json({ affiliate: affiliateRows[0], promo_code: codeRows[0] });
+      return { affiliate: affiliateRows.rows[0], promo_code: codeRows.rows[0] };
+    });
+
+    res.status(201).json(result);
   } catch (err) { next(err); }
 });
 

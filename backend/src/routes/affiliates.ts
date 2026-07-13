@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { query } from '../db/index.js';
+import { query, withTransaction } from '../db/index.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -45,8 +45,10 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response, next:
       return;
     }
 
-    await query('DELETE FROM promo_codes WHERE affiliate_id = $1', [id]);
-    await query('DELETE FROM affiliates WHERE id = $1', [id]);
+    await withTransaction(async (client) => {
+      await client.query('DELETE FROM promo_codes WHERE affiliate_id = $1', [id]);
+      await client.query('DELETE FROM affiliates WHERE id = $1', [id]);
+    });
     res.json({ deleted: true });
   } catch (err) { next(err); }
 });

@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import type { Affiliate } from '../types.js';
-import { fmtPHP } from '../utils.js';
+import { fmtPHP, esc } from '../utils.js';
 
 export async function renderAffiliates(): Promise<string> {
   const affiliates = await api.getAffiliates();
@@ -13,10 +13,10 @@ export async function renderAffiliates(): Promise<string> {
 
   const rows = affiliates.map(a => `
     <tr>
-      <td><strong style="color:var(--pine);">${a.member_name}</strong>${a.business ? `<br><span style="color:var(--muted);font-size:0.72rem;">${a.business}</span>` : ''}</td>
-      <td><span class="code-tag">${a.code}</span></td>
+      <td><strong style="color:var(--pine);">${esc(a.member_name)}</strong>${a.business ? `<br><span style="color:var(--muted);font-size:0.72rem;">${esc(a.business)}</span>` : ''}</td>
+      <td><span class="code-tag">${esc(a.code)}</span></td>
       <td>${parseFloat(a.commission_rate)}%</td>
-      <td><span class="pill ${a.status}">${a.status}</span></td>
+      <td><span class="pill ${a.status}">${esc(a.status)}</span></td>
       <td style="color:var(--muted);font-size:0.74rem;">${a.joined_at.slice(0, 10)}</td>
       <td>${fmtPHP(parseFloat(a.lifetime_earned))}</td>
       <td style="white-space:nowrap;">
@@ -25,7 +25,7 @@ export async function renderAffiliates(): Promise<string> {
           : a.status === 'paused'
             ? `<button class="small-btn primary" data-toggle="${a.id}">Reactivate</button>`
             : ''}
-        <button class="small-btn ghost" data-delete="${a.id}" data-name="${a.member_name}" style="margin-left:6px;">Delete</button>
+        <button class="small-btn ghost" data-delete="${a.id}" data-name="${esc(a.member_name)}" style="margin-left:6px;">Delete</button>
       </td>
     </tr>
   `).join('');

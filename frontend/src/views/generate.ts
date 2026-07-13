@@ -1,10 +1,11 @@
 import { api } from '../api.js';
+import { esc } from '../utils.js';
 
 export async function renderGenerate(): Promise<string> {
   const campaigns = await api.getCampaigns();
   const campaignOptions = campaigns
     .filter(c => c.status !== 'ended')
-    .map(c => `<option value="${c.id}">${c.name}</option>`)
+    .map(c => `<option value="${c.id}">${esc(c.name)}</option>`)
     .join('');
 
   return `
@@ -83,7 +84,7 @@ export function attachGenerateHandlers(reload: () => void): void {
       resultEl.classList.add('show');
       document.getElementById('gen-result-code')!.textContent = result.affiliate.code;
       document.getElementById('gen-result-meta')!.innerHTML = `
-        ${result.affiliate.member_name} · ${parseFloat(result.affiliate.commission_rate)}% commission
+        ${esc(result.affiliate.member_name)} · ${parseFloat(result.affiliate.commission_rate)}% commission
         ${campaign_id ? '' : ' · standing code'}<br>
         Saved — this affiliate now appears in the Affiliates tab.
       `;
